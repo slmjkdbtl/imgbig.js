@@ -123,10 +123,6 @@ export default function init(opts = {}) {
 		wheelEvents.forEach((f) => f(e))
 	}
 
-	bodyEvents["touchend"] = (e) => {
-		console.log(e)
-	}
-
 	windowEvents["resize"] = (e) => {
 		resizeEvents.forEach((f) => f(e))
 	}
@@ -145,7 +141,6 @@ export default function init(opts = {}) {
 		})
 	}
 
-	// TODO: name
 	function apply(img) {
 		img.addEventListener("click", onclick)
 		const oldCursor = img.style.cursor
@@ -170,8 +165,7 @@ export default function init(opts = {}) {
 		return rect
 	}
 
-	// TODO: name
-	function bigify(srcImg) {
+	function present(srcImg) {
 
 		if (curShowing) return
 
@@ -303,7 +297,7 @@ export default function init(opts = {}) {
 	}
 
 	function onclick(e) {
-		bigify(e.target)
+		present(e.target)
 	}
 
 	function stop() {
@@ -314,7 +308,7 @@ export default function init(opts = {}) {
 
 	return {
 		apply,
-		bigify,
+		present,
 		close,
 		stop,
 		prev,
