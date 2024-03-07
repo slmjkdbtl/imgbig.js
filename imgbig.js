@@ -1,6 +1,5 @@
 const DEF_CLASSNAME = "imgbig"
 const DEF_BACKGROUND_OPACITY = 0.9
-const DEF_BACKGROUND = `rgba(0, 0, 0, ${DEF_BACKGROUND_OPACITY})`
 const DEF_SIZE = 0.8
 const DEF_ZINDEX = 999999
 const DEF_TRANSITION = 0.25
@@ -32,6 +31,20 @@ function style(sheet) {
 		.join("")
 }
 
+class Registry extends Map {
+	lastID = 0
+	push(v) {
+		const id = this.lastID
+		this.set(id, v)
+		this.lastID++
+		return id
+	}
+	pushd(v) {
+		const id = this.push(v)
+		return () => this.delete(id)
+	}
+}
+
 export default function init(opts = {}) {
 
 	const className = opts.className ?? DEF_CLASSNAME
@@ -41,7 +54,7 @@ export default function init(opts = {}) {
 
 	for (const img of imgs) {
 		if (img.tagName === "IMG") {
-			make(img)
+			apply(img)
 		}
 	}
 
@@ -50,7 +63,7 @@ export default function init(opts = {}) {
 			if (e.type !== "childList") return
 			for (const node of e.addedNodes) {
 				if (node.tagName === "IMG" && node.classList.contains(className)) {
-					make(node)
+					apply(node)
 				}
 			}
 		})
@@ -58,30 +71,61 @@ export default function init(opts = {}) {
 
 	observer.observe(document.body, { childList: true, subtree: true })
 
-	function prev() {}
-	function next() {}
+	const wheelEvents = new Registry()
+	const resizeEvents = new Registry()
+
+	function prev() {
+		if (!curShowing) return
+		const imgs = document.querySelectorAll(`.${className}`)
+		for (let i = 0; i < imgs.length; i++) {
+			if (imgs[i] === curShowing.srcImg) {
+				const nimg = imgs[i === 0 ? imgs.length - 1 : i - 1]
+				curShowing.change(nimg)
+				return
+			}
+		}
+	}
+
+	function next() {
+		if (!curShowing) return
+		const imgs = document.querySelectorAll(`.${className}`)
+		for (let i = 0; i < imgs.length; i++) {
+			if (imgs[i] === curShowing.srcImg) {
+				const nimg = imgs[(i + 1) % imgs.length]
+				curShowing.change(nimg)
+				return
+			}
+		}
+	}
 
 	const bodyEvents = {}
 	const windowEvents = {}
 
 	bodyEvents["keydown"] = (e) => {
-		if (e.key === "Escape") {
-			close()
-		} else if (e.key === "ArrowLeft") {
-			prev()
-		} else if (e.key === "ArrowRight") {
-			next()
+		if (e.key === "Escape" || e.key === " ") {
+			if (curShowing) {
+				e.preventDefault()
+				close()
+			}
+		}
+		if (opts.navigate) {
+			if (e.key === "ArrowLeft") {
+				e.preventDefault()
+				prev()
+			} else if (e.key === "ArrowRight") {
+				e.preventDefault()
+				next()
+			}
 		}
 	}
 
-	// TODO
 	bodyEvents["wheel"] = (e) => {
-		if (curShowing) {
-			e.preventDefault()
-		}
+		wheelEvents.forEach((f) => f(e))
 	}
 
-	const resizeEvents = []
+	bodyEvents["touchend"] = (e) => {
+		console.log(e)
+	}
 
 	windowEvents["resize"] = (e) => {
 		resizeEvents.forEach((f) => f(e))
@@ -101,32 +145,52 @@ export default function init(opts = {}) {
 		})
 	}
 
-	function make(img) {
+	// TODO: name
+	function apply(img) {
 		img.addEventListener("click", onclick)
-		if (opts.cursor !== false) {
-			img.style.cursor = opts.cursor ?? "zoom-in"
-		}
+		const oldCursor = img.style.cursor
+		img.style.cursor = opts.cursor ?? "zoom-in"
 		cleanups.push(() => {
+			img.style.cursor = oldCursor
 			img.removeEventListener("click", onclick)
 		})
 	}
 
-	function bigify(img) {
+	function getRealRect(el) {
+		const rect = el.getBoundingClientRect()
+		const style = getComputedStyle(el)
+		const pl = parseFloat(style.paddingLeft)
+		const pr = parseFloat(style.paddingRight)
+		const pt = parseFloat(style.paddingTop)
+		const pb = parseFloat(style.paddingBottom)
+		rect.x += pl
+		rect.y += pt
+		rect.width -= (pl + pr)
+		rect.height -= (pt + pb)
+		return rect
+	}
+
+	// TODO: name
+	function bigify(srcImg) {
 
 		if (curShowing) return
 
+		const cleanups2 = []
 		const transition = opts.transition ?? DEF_TRANSITION
-		const rect = img.getBoundingClientRect()
+		const srcRect = getRealRect(srcImg)
 
-		const img2 = h("img", {
-			src: img.src,
+		const img = h("img", {
+			src: srcImg.src,
 			style: style({
 				"position": "absolute",
-				"left": `${rect.x}px`,
-				"top": `${rect.y}px`,
-				"width": `${rect.width}px`,
-				"height": `${rect.height}px`,
+				"left": `${srcRect.x}px`,
+				"top": `${srcRect.y}px`,
+				"width": `${srcRect.width}px`,
+				"height": `${srcRect.height}px`,
 				"transition": `${transition}s`,
+				"margin": "0",
+				"padding": "0 !important",
+				"box-sizing": "border-box",
 			}),
 		})
 
@@ -135,24 +199,27 @@ export default function init(opts = {}) {
 				"background": `rgba(0, 0, 0, 0)`,
 				"z-index": opts.zIndex ?? DEF_ZINDEX,
 				"transition": `background ${transition}s`,
+				"margin": "0",
+				"padding": "0",
 				"width": "100vw",
 				"height": "100vh",
 				"position": "fixed",
 				"top": "0",
 				"left": "0",
+				"box-sizing": "border-box",
 			}),
 			onclick: close,
 		}, [
-			img2,
+			img,
 		])
 
 		function calcRect() {
+			const size = opts.size ?? DEF_SIZE
 			const ww = window.innerWidth
 			const wh = window.innerHeight
-			const r = rect.width / rect.height
-			let iw = rect.width
-			let ih = rect.height
-			const size = opts.size ?? DEF_SIZE
+			let iw = srcImg.width
+			let ih = srcImg.height
+			const r = iw / ih
 			if (ww / wh >= r) {
 				ih = wh * size
 				iw = ih * r
@@ -170,37 +237,61 @@ export default function init(opts = {}) {
 			}
 		}
 
+		function change(newSrcImg) {
+			srcImg = newSrcImg
+			img.src = srcImg.src
+			img.onload = update
+			curShowing.srcImg = srcImg
+		}
+
 		function update() {
 			const { x, y, width, height } = calcRect()
-			img2.style["left"] = `${x}px`
-			img2.style["top"] = `${y}`
-			img2.style["width"] = `${width}px`
-			img2.style["height"] = `${height}px`
+			img.style["left"] = `${x}px`
+			img.style["top"] = `${y}`
+			img.style["width"] = `${width}px`
+			img.style["height"] = `${height}px`
 		}
 
 		setTimeout(() => {
 			update()
 			filter.style["background"] = `rgba(0, 0, 0, ${opts.backgroundOpacity ?? DEF_BACKGROUND_OPACITY})`
 			setTimeout(() => {
-				img2.style["transition"] = `0s`
+				img.style["transition"] = `0s`
 			}, transition * 1000)
-			resizeEvents.push(update)
 		}, 0)
 
+		cleanups2.push(resizeEvents.pushd(update))
+
+		cleanups2.push(wheelEvents.pushd((e) => {
+			e.preventDefault()
+			// TODO: something like this
+			// https://ilanablumberg.co.uk/Collections-Projects
+		}))
+
 		function dispose() {
-			img2.style["left"] = `${rect.x}px`
-			img2.style["top"] = `${rect.y}`
-			img2.style["width"] = `${rect.width}px`
-			img2.style["height"] = `${rect.height}px`
-			img2.style["transition"] = `${transition}s`
+			const srcRect = getRealRect(srcImg)
+			img.style["transition"] = `${transition}s`
+			img.style["left"] = `${srcRect.x}px`
+			img.style["top"] = `${srcRect.y}`
+			img.style["width"] = `${srcRect.width}px`
+			img.style["height"] = `${srcRect.height}px`
 			filter.style["background"] = `rgba(0, 0, 0, 0)`
-			setTimeout(() => {
-				filter.parentNode.removeChild(filter)
-			}, transition * 1000)
+			cleanups2.forEach((f) => f())
+			return new Promise((resolve) => {
+				setTimeout(() => {
+					// TODO: rapidly clicking yields error
+					filter.parentNode.removeChild(filter)
+					curShowing = null
+					resolve()
+				}, transition * 1000)
+			})
 		}
 
 		curShowing = {
 			dispose: dispose,
+			update: update,
+			change: change,
+			srcImg: srcImg,
 		}
 
 		document.body.appendChild(filter)
@@ -208,9 +299,7 @@ export default function init(opts = {}) {
 	}
 
 	function close() {
-		if (!curShowing) return
-		curShowing.dispose()
-		curShowing = null
+		curShowing?.dispose()
 	}
 
 	function onclick(e) {
@@ -224,7 +313,7 @@ export default function init(opts = {}) {
 	}
 
 	return {
-		make,
+		apply,
 		bigify,
 		close,
 		stop,

@@ -1,26 +1,52 @@
 <html>
 <head>
 	<title>imgbig.js</title>
+	<style>
+* {
+	margin: 8px;
+}
+.imgbig {
+	width: 200px;
+}
+	</style>
 </head>
 <body>
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
-	<img src="test.jpg" class="imgbig">
+	<h1>imgbig.js</h1>
+	<img src="img/1.jpg" class="imgbig">
+	<img src="img/2.jpg" class="imgbig">
+	<img src="img/3.jpg" class="imgbig">
+	<img src="img/4.jpg" class="imgbig">
+	<img src="img/5.jpg" class="imgbig">
+	<img src="img/6.jpg" class="imgbig">
+	<img src="img/7.jpg" class="imgbig">
+	<img src="img/8.jpg" class="imgbig">
+	<img src="img/9.jpg" class="imgbig">
+	<img src="img/10.jpg" class="imgbig">
+	<img src="img/11.jpg" class="imgbig">
+	<img src="img/12.jpg" class="imgbig">
+	<img src="img/13.jpg" class="imgbig">
+	<img src="img/14.jpg" class="imgbig">
+	<img src="img/15.jpg" class="imgbig">
+	<img src="img/16.jpg" class="imgbig">
 	<script type="module">
 import init from "./imgbig.js"
 
-const imgbig = init()
+const imgbig = init({
+	// the class name to apply click-to-enlarge
+	className: "imgbig",
+	// cursor when hovering
+	cursor: "zoom-in",
+	// transition time
+	transition: 0.25,
+	// size percentage of the screen width / height
+	size: 0.8,
+	// z index for the backdrop
+	zIndex: 999999,
+	// backdrop opacity
+	backgroundOpacity: 0.9,
+	// if use arrow key to cycle through images
+	navigate: true,
+})
 	</script>
 </body>
 </html>
