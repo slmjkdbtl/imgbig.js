@@ -252,9 +252,14 @@ export default function(userOpts = {}) {
 		function update() {
 			const destRect = calcDestRect()
 			if (opts.useTransform) {
+				const srcRect = getRealRect(srcImg)
 				const dx = destRect.x - srcRect.x
 				const dy = destRect.y - srcRect.y
 				const s = destRect.width / srcRect.width
+				img.style["left"] = `${srcRect.x}px`
+				img.style["top"] = `${srcRect.y}`
+				img.style["width"] = `${srcRect.width}px`
+				img.style["height"] = `${srcRect.height}px`
 				img.style["transform"] = `translate3d(${dx}px, ${dy}px, 0) scale(${s})`
 			} else {
 				img.style["left"] = `${destRect.x}px`
