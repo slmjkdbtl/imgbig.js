@@ -1,5 +1,5 @@
 const DEF_OPTS = {
-	className: "imgbig",
+	className: "present",
 	cursor: "zoom-in",
 	transition: 0.25,
 	transitionFunc: "ease",
@@ -81,30 +81,30 @@ export default function init(userOpts = {}) {
 
 	const opts = merge(DEF_OPTS, userOpts)
 	const cleanups = []
-	let curShowing = null
+	let curPresenting = null
 	const selector = `img.${opts.className}`
 
 	cleanups.push(forAll(selector, apply))
 
 	function prev() {
-		if (!curShowing) return
+		if (!curPresenting) return
 		const imgs = document.querySelectorAll(selector)
 		for (let i = 0; i < imgs.length; i++) {
-			if (imgs[i] === curShowing.srcImg) {
+			if (imgs[i] === curPresenting.srcImg) {
 				const newSrcImg = imgs[i === 0 ? imgs.length - 1 : i - 1]
-				curShowing.change(newSrcImg)
+				curPresenting.change(newSrcImg)
 				return
 			}
 		}
 	}
 
 	function next() {
-		if (!curShowing) return
+		if (!curPresenting) return
 		const imgs = document.querySelectorAll(selector)
 		for (let i = 0; i < imgs.length; i++) {
-			if (imgs[i] === curShowing.srcImg) {
+			if (imgs[i] === curPresenting.srcImg) {
 				const newSrcImg = imgs[(i + 1) % imgs.length]
-				curShowing.change(newSrcImg)
+				curPresenting.change(newSrcImg)
 				return
 			}
 		}
@@ -115,7 +115,7 @@ export default function init(userOpts = {}) {
 
 	bodyEvents["keydown"] = (e) => {
 		if (e.key === "Escape" || e.key === " ") {
-			if (curShowing) {
+			if (curPresenting) {
 				e.preventDefault()
 				close()
 			}
@@ -132,15 +132,15 @@ export default function init(userOpts = {}) {
 	}
 
 	bodyEvents["wheel"] = (e) => {
-		if (!curShowing) return
+		if (!curPresenting) return
 		e.preventDefault()
 		// TODO: something like this
 		// https://ilanablumberg.co.uk/Collections-Projects
 	}
 
 	windowEvents["resize"] = (e) => {
-		if (!curShowing) return
-		curShowing.update()
+		if (!curPresenting) return
+		curPresenting.update()
 	}
 
 	for (const ev in bodyEvents) {
@@ -169,7 +169,7 @@ export default function init(userOpts = {}) {
 
 	function present(srcImg) {
 
-		if (curShowing) return
+		if (curPresenting) return
 
 		const srcRect = getRealRect(srcImg)
 
@@ -238,7 +238,7 @@ export default function init(userOpts = {}) {
 			srcImg = newSrcImg
 			img.src = srcImg.src
 			img.onload = update
-			curShowing.srcImg = srcImg
+			curPresenting.srcImg = srcImg
 		}
 
 		function update() {
@@ -265,17 +265,19 @@ export default function init(userOpts = {}) {
 			img.style["width"] = `${srcRect.width}px`
 			img.style["height"] = `${srcRect.height}px`
 			filter.style["background-color"] = `rgba(0, 0, 0, 0)`
+			const self = curPresenting
 			return new Promise((resolve) => {
 				setTimeout(() => {
-					// TODO: rapidly clicking yields error
+					if (curPresenting === self) {
+						curPresenting = null
+					}
 					filter.remove()
-					curShowing = null
 					resolve()
 				}, opts.transition * 1000)
 			})
 		}
 
-		curShowing = {
+		curPresenting = {
 			dispose: dispose,
 			update: update,
 			change: change,
@@ -287,7 +289,7 @@ export default function init(userOpts = {}) {
 	}
 
 	function close() {
-		curShowing?.dispose()
+		curPresenting?.dispose()
 	}
 
 	function onclick(e) {
@@ -299,6 +301,10 @@ export default function init(userOpts = {}) {
 		cleanups.forEach((f) => f())
 	}
 
+	function isPresenting() {
+		return Boolean(curPresenting)
+	}
+
 	return {
 		apply,
 		present,
@@ -306,6 +312,7 @@ export default function init(userOpts = {}) {
 		prev,
 		next,
 		stop,
+		isPresenting,
 	}
 
 }
