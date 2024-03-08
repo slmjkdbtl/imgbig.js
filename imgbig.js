@@ -1,8 +1,15 @@
-const DEF_CLASSNAME = "imgbig"
-const DEF_BACKGROUND_OPACITY = 0.9
-const DEF_SIZE = 0.8
-const DEF_ZINDEX = 999999
-const DEF_TRANSITION = 0.25
+const DEF_OPTS = {
+	className: "imgbig",
+	cursor: "zoom-in",
+	transition: 0.25,
+	transitionFunc: "ease",
+	size: 0.8,
+	zIndex: 999999,
+	backgroundOpacity: 0.9,
+	navigate: true,
+	wrap: true,
+	caption: false,
+}
 
 function h(tag, props, children) {
 	const el = document.createElement(tag)
@@ -31,56 +38,61 @@ function style(sheet) {
 		.join("")
 }
 
-class Registry extends Map {
-	lastID = 0
-	push(v) {
-		const id = this.lastID
-		this.set(id, v)
-		this.lastID++
-		return id
-	}
-	pushd(v) {
-		const id = this.push(v)
-		return () => this.delete(id)
-	}
-}
-
-export default function init(opts = {}) {
-
-	const className = opts.className ?? DEF_CLASSNAME
-	const cleanups = []
-	let curShowing = null
-	const imgs = document.querySelectorAll(`.${className}`)
-
-	for (const img of imgs) {
-		if (img.tagName === "IMG") {
-			apply(img)
-		}
-	}
-
+function forAll(selector, action) {
+	document.querySelectorAll(selector).forEach(action)
 	const observer = new MutationObserver((events) => {
 		events.forEach((e) => {
 			if (e.type !== "childList") return
 			for (const node of e.addedNodes) {
-				if (node.tagName === "IMG" && node.classList.contains(className)) {
-					apply(node)
+				if (node.matches(selector)) {
+					action(node)
 				}
 			}
 		})
 	})
-
 	observer.observe(document.body, { childList: true, subtree: true })
+	return () => observer.disconnect()
+}
 
-	const wheelEvents = new Registry()
-	const resizeEvents = new Registry()
+function merge(a, b) {
+	const obj = { ...a }
+	for (const k in b) {
+		obj[k] = b[k]
+	}
+	return obj
+}
+
+function getRealRect(el) {
+	const rect = el.getBoundingClientRect()
+	const style = getComputedStyle(el)
+	const pl = parseFloat(style.paddingLeft) || 0
+	const pr = parseFloat(style.paddingRight) || 0
+	const pt = parseFloat(style.paddingTop) || 0
+	const pb = parseFloat(style.paddingBottom) || 0
+	const bw = parseFloat(style.borderWidth) || 0
+	rect.x += pl + bw
+	rect.y += pt + bw
+	rect.width -= (pl + pr + bw * 2)
+	rect.height -= (pt + pb + bw * 2)
+	return rect
+}
+
+export default function init(userOpts = {}) {
+
+	const opts = merge(DEF_OPTS, userOpts)
+	const cleanups = []
+	let curShowing = null
+	const selector = `img.${opts.className}`
+
+	cleanups.push(forAll(selector, apply))
 
 	function prev() {
 		if (!curShowing) return
-		const imgs = document.querySelectorAll(`.${className}`)
+		const imgs = document.querySelectorAll(selector)
 		for (let i = 0; i < imgs.length; i++) {
 			if (imgs[i] === curShowing.srcImg) {
-				const nimg = imgs[i === 0 ? imgs.length - 1 : i - 1]
-				curShowing.change(nimg)
+				const newSrcImg = imgs[i === 0 ? imgs.length - 1 : i - 1]
+				curShowing.change(newSrcImg)
 				return
 			}
 		}
@@ -88,11 +100,11 @@ export default function init(opts = {}) {
 
 	function next() {
 		if (!curShowing) return
-		const imgs = document.querySelectorAll(`.${className}`)
+		const imgs = document.querySelectorAll(selector)
 		for (let i = 0; i < imgs.length; i++) {
 			if (imgs[i] === curShowing.srcImg) {
-				const nimg = imgs[(i + 1) % imgs.length]
-				curShowing.change(nimg)
+				const newSrcImg = imgs[(i + 1) % imgs.length]
+				curShowing.change(newSrcImg)
 				return
 			}
 		}
@@ -120,11 +132,15 @@ export default function init(opts = {}) {
 	}
 
 	bodyEvents["wheel"] = (e) => {
-		wheelEvents.forEach((f) => f(e))
+		if (!curShowing) return
+		e.preventDefault()
+		// TODO: something like this
+		// https://ilanablumberg.co.uk/Collections-Projects
 	}
 
 	windowEvents["resize"] = (e) => {
-		resizeEvents.forEach((f) => f(e))
+		if (!curShowing) return
+		curShowing.update()
 	}
 
 	for (const ev in bodyEvents) {
@@ -151,26 +167,10 @@ export default function init(opts = {}) {
 		})
 	}
 
-	function getRealRect(el) {
-		const rect = el.getBoundingClientRect()
-		const style = getComputedStyle(el)
-		const pl = parseFloat(style.paddingLeft)
-		const pr = parseFloat(style.paddingRight)
-		const pt = parseFloat(style.paddingTop)
-		const pb = parseFloat(style.paddingBottom)
-		rect.x += pl
-		rect.y += pt
-		rect.width -= (pl + pr)
-		rect.height -= (pt + pb)
-		return rect
-	}
-
 	function present(srcImg) {
 
 		if (curShowing) return
 
-		const cleanups2 = []
-		const transition = opts.transition ?? DEF_TRANSITION
 		const srcRect = getRealRect(srcImg)
 
 		const img = h("img", {
@@ -181,26 +181,29 @@ export default function init(opts = {}) {
 				"top": `${srcRect.y}px`,
 				"width": `${srcRect.width}px`,
 				"height": `${srcRect.height}px`,
-				"transition": `${transition}s`,
+				"transition-duration": `${opts.transition}s`,
+				"transition-timing-function": opts.transitionFunc,
 				"margin": "0",
-				"padding": "0 !important",
-				"box-sizing": "border-box",
+				"padding": "0",
+				"border": "none",
 			}),
 		})
 
 		const filter = h("div", {
 			style: style({
-				"background": `rgba(0, 0, 0, 0)`,
-				"z-index": opts.zIndex ?? DEF_ZINDEX,
-				"transition": `background ${transition}s`,
-				"margin": "0",
-				"padding": "0",
+				"background-color": `rgba(0, 0, 0, 0)`,
+				"z-index": opts.zIndex,
+				"transition-property": "background-color",
+				"transition-duration": `${opts.transition}s`,
 				"width": "100vw",
 				"height": "100vh",
 				"position": "fixed",
 				"top": "0",
 				"left": "0",
-				"box-sizing": "border-box",
+				"transition-timing-function": opts.transitionFunc,
+				"margin": "0",
+				"padding": "0",
+				"border": "none",
 			}),
 			onclick: close,
 		}, [
@@ -208,7 +211,7 @@ export default function init(opts = {}) {
 		])
 
 		function calcRect() {
-			const size = opts.size ?? DEF_SIZE
+			const size = opts.size
 			const ww = window.innerWidth
 			const wh = window.innerHeight
 			let iw = srcImg.width
@@ -248,36 +251,27 @@ export default function init(opts = {}) {
 
 		setTimeout(() => {
 			update()
-			filter.style["background"] = `rgba(0, 0, 0, ${opts.backgroundOpacity ?? DEF_BACKGROUND_OPACITY})`
+			filter.style["background-color"] = `rgba(0, 0, 0, ${opts.backgroundOpacity})`
 			setTimeout(() => {
-				img.style["transition"] = `0s`
-			}, transition * 1000)
+				img.style["transition-duration"] = `0s`
+			}, opts.transition * 1000)
 		}, 0)
-
-		cleanups2.push(resizeEvents.pushd(update))
-
-		cleanups2.push(wheelEvents.pushd((e) => {
-			e.preventDefault()
-			// TODO: something like this
-			// https://ilanablumberg.co.uk/Collections-Projects
-		}))
 
 		function dispose() {
 			const srcRect = getRealRect(srcImg)
-			img.style["transition"] = `${transition}s`
+			img.style["transition-duration"] = `${opts.transition}s`
 			img.style["left"] = `${srcRect.x}px`
 			img.style["top"] = `${srcRect.y}`
 			img.style["width"] = `${srcRect.width}px`
 			img.style["height"] = `${srcRect.height}px`
-			filter.style["background"] = `rgba(0, 0, 0, 0)`
-			cleanups2.forEach((f) => f())
+			filter.style["background-color"] = `rgba(0, 0, 0, 0)`
 			return new Promise((resolve) => {
 				setTimeout(() => {
 					// TODO: rapidly clicking yields error
-					filter.parentNode.removeChild(filter)
+					filter.remove()
 					curShowing = null
 					resolve()
-				}, transition * 1000)
+				}, opts.transition * 1000)
 			})
 		}
 
@@ -302,7 +296,6 @@ export default function init(opts = {}) {
 
 	function stop() {
 		close()
-		observer.disconnect()
 		cleanups.forEach((f) => f())
 	}
 
@@ -310,9 +303,9 @@ export default function init(opts = {}) {
 		apply,
 		present,
 		close,
-		stop,
 		prev,
 		next,
+		stop,
 	}
 
 }

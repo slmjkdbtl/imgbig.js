@@ -31,6 +31,7 @@
 	<script type="module">
 import init from "./imgbig.js"
 
+// every option with their default values
 const imgbig = init({
 	// the class name to apply click-to-enlarge
 	className: "imgbig",
@@ -46,6 +47,10 @@ const imgbig = init({
 	backgroundOpacity: 0.9,
 	// if use arrow key to cycle through images
 	navigate: true,
+	// if navigation wraps around
+	wrap: true,
+	// if write image caption to the bottom
+	caption: false,
 })
 	</script>
 </body>
