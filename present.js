@@ -9,6 +9,7 @@ const DEF_OPTS = {
 	navigate: true,
 	wrap: true,
 	caption: false,
+	useTransform: true,
 }
 
 function h(tag, props, children) {
@@ -54,12 +55,12 @@ function forAll(selector, action) {
 	return () => observer.disconnect()
 }
 
-function merge(a, b) {
-	const obj = { ...a }
-	for (const k in b) {
-		obj[k] = b[k]
+function mergeDefaults(obj, defaults) {
+	const obj2 = { ...defaults }
+	for (const k in obj) {
+		obj2[k] = obj[k]
 	}
-	return obj
+	return obj2
 }
 
 function getRealRect(el) {
@@ -77,15 +78,16 @@ function getRealRect(el) {
 	return rect
 }
 
-export default function init(userOpts = {}) {
+export default function(userOpts = {}) {
 
-	const opts = merge(DEF_OPTS, userOpts)
+	const opts = mergeDefaults(userOpts, DEF_OPTS)
 	const cleanups = []
 	let curPresenting = null
 	const selector = `img.${opts.className}`
 
 	cleanups.push(forAll(selector, apply))
 
+	// TODO: data-present-scope
 	function prev() {
 		if (!curPresenting) return
 		const imgs = document.querySelectorAll(selector)
@@ -181,15 +183,20 @@ export default function init(userOpts = {}) {
 				"top": `${srcRect.y}px`,
 				"width": `${srcRect.width}px`,
 				"height": `${srcRect.height}px`,
+				"transform-origin": opts.useTransform ? "top left" : "center",
+				"transition-property": opts.useTransform
+					? "transform"
+					: "left, top, width, height",
 				"transition-duration": `${opts.transition}s`,
 				"transition-timing-function": opts.transitionFunc,
+				"transform": "translateZ(0)",
 				"margin": "0",
 				"padding": "0",
 				"border": "none",
 			}),
 		})
 
-		const filter = h("div", {
+		const backdrop = h("div", {
 			style: style({
 				"background-color": `rgba(0, 0, 0, 0)`,
 				"z-index": opts.zIndex,
@@ -210,7 +217,7 @@ export default function init(userOpts = {}) {
 			img,
 		])
 
-		function calcRect() {
+		function calcDestRect() {
 			const size = opts.size
 			const ww = window.innerWidth
 			const wh = window.innerHeight
@@ -241,17 +248,25 @@ export default function init(userOpts = {}) {
 			curPresenting.srcImg = srcImg
 		}
 
+		// TODO: slow on mobile, use transform?
 		function update() {
-			const { x, y, width, height } = calcRect()
-			img.style["left"] = `${x}px`
-			img.style["top"] = `${y}`
-			img.style["width"] = `${width}px`
-			img.style["height"] = `${height}px`
+			const destRect = calcDestRect()
+			if (opts.useTransform) {
+				const dx = destRect.x - srcRect.x
+				const dy = destRect.y - srcRect.y
+				const s = destRect.width / srcRect.width
+				img.style["transform"] = `translate3d(${dx}px, ${dy}px, 0) scale(${s})`
+			} else {
+				img.style["left"] = `${destRect.x}px`
+				img.style["top"] = `${destRect.y}`
+				img.style["width"] = `${destRect.width}px`
+				img.style["height"] = `${destRect.height}px`
+			}
 		}
 
 		setTimeout(() => {
 			update()
-			filter.style["background-color"] = `rgba(0, 0, 0, ${opts.backgroundOpacity})`
+			backdrop.style["background-color"] = `rgba(0, 0, 0, ${opts.backgroundOpacity})`
 			setTimeout(() => {
 				img.style["transition-duration"] = `0s`
 			}, opts.transition * 1000)
@@ -260,18 +275,22 @@ export default function init(userOpts = {}) {
 		function dispose() {
 			const srcRect = getRealRect(srcImg)
 			img.style["transition-duration"] = `${opts.transition}s`
-			img.style["left"] = `${srcRect.x}px`
-			img.style["top"] = `${srcRect.y}`
-			img.style["width"] = `${srcRect.width}px`
-			img.style["height"] = `${srcRect.height}px`
-			filter.style["background-color"] = `rgba(0, 0, 0, 0)`
+			if (opts.useTransform) {
+				img.style["transform"] = "translate3d(0, 0, 0) scale(1)"
+			} else {
+				img.style["left"] = `${srcRect.x}px`
+				img.style["top"] = `${srcRect.y}`
+				img.style["width"] = `${srcRect.width}px`
+				img.style["height"] = `${srcRect.height}px`
+			}
+			backdrop.style["background-color"] = `rgba(0, 0, 0, 0)`
 			const self = curPresenting
 			return new Promise((resolve) => {
 				setTimeout(() => {
 					if (curPresenting === self) {
 						curPresenting = null
 					}
-					filter.remove()
+					backdrop.remove()
 					resolve()
 				}, opts.transition * 1000)
 			})
@@ -284,7 +303,7 @@ export default function init(userOpts = {}) {
 			srcImg: srcImg,
 		}
 
-		document.body.appendChild(filter)
+		document.body.appendChild(backdrop)
 
 	}
 
@@ -313,6 +332,7 @@ export default function init(userOpts = {}) {
 		next,
 		stop,
 		isPresenting,
+		curPresenting: () => curPresenting,
 	}
 
 }

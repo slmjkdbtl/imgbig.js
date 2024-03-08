@@ -6,12 +6,13 @@
 	margin: 8px;
 }
 .present {
-	width: 200px;
+	width: 160px;
 }
 	</style>
 </head>
 <body>
-	<h1>present.js</h1>
+	<h2>present.js</h2>
+	<p>click on image to present, left / right arrow to cycle</p>
 	<img src="img/1.jpg" class="present">
 	<img src="img/2.jpg" class="present">
 	<img src="img/3.jpg" class="present">
@@ -28,6 +29,7 @@
 	<img src="img/14.jpg" class="present">
 	<img src="img/15.jpg" class="present">
 	<img src="img/16.jpg" class="present">
+	<img src="img/17.png" class="present">
 	<script type="module">
 import init from "./present.js"
 
@@ -39,6 +41,8 @@ const present = init({
 	cursor: "zoom-in",
 	// transition time
 	transition: 0.25,
+	// css timing func for the transition
+	transitionFunc: "ease",
 	// size percentage of the screen width / height
 	size: 0.8,
 	// z index for the backdrop
@@ -51,6 +55,8 @@ const present = init({
 	wrap: true,
 	// if write image caption to the bottom
 	caption: false,
+	// use css transform instead of top left width height
+	useTransform: true,
 })
 	</script>
 </body>
