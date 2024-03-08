@@ -13,23 +13,23 @@
 <body>
 	<h2>present.js</h2>
 	<p>click on image to present, left / right arrow to cycle</p>
-	<img src="img/1.jpg" class="present">
-	<img src="img/2.jpg" class="present">
-	<img src="img/3.jpg" class="present">
-	<img src="img/4.jpg" class="present">
-	<img src="img/5.jpg" class="present">
-	<img src="img/6.jpg" class="present">
-	<img src="img/7.jpg" class="present">
-	<img src="img/8.jpg" class="present">
-	<img src="img/9.jpg" class="present">
-	<img src="img/10.jpg" class="present">
-	<img src="img/11.jpg" class="present">
-	<img src="img/12.jpg" class="present">
-	<img src="img/13.jpg" class="present">
-	<img src="img/14.jpg" class="present">
-	<img src="img/15.jpg" class="present">
-	<img src="img/16.jpg" class="present">
-	<img src="img/17.png" class="present">
+	<img src="img/1.jpg" class="present" data-present-scope="test">
+	<img src="img/2.jpg" class="present" data-present-scope="test">
+	<img src="img/3.jpg" class="present" data-present-scope="test">
+	<img src="img/4.jpg" class="present" data-present-scope="test">
+	<img src="img/5.jpg" class="present" data-present-scope="test">
+	<img src="img/6.jpg" class="present" data-present-scope="test">
+	<img src="img/7.jpg" class="present" data-present-scope="test">
+	<img src="img/8.jpg" class="present" data-present-scope="test">
+	<img src="img/9.jpg" class="present" data-present-scope="test">
+	<img src="img/10.jpg" class="present" data-present-scope="test">
+	<img src="img/11.jpg" class="present" data-present-scope="test">
+	<img src="img/12.jpg" class="present" data-present-scope="test">
+	<img src="img/13.jpg" class="present" data-present-scope="test">
+	<img src="img/14.jpg" class="present" data-present-scope="test">
+	<img src="img/15.jpg" class="present" data-present-scope="test">
+	<img src="img/16.jpg" class="present" data-present-scope="test">
+	<img src="img/17.png" class="present" data-present-scope="test">
 	<script type="module">
 import init from "./present.js"
 
@@ -49,14 +49,10 @@ const present = init({
 	zIndex: 999999,
 	// backdrop opacity
 	backgroundOpacity: 0.9,
-	// if use arrow key to cycle through images
-	navigate: true,
 	// if navigation wraps around
-	wrap: true,
-	// if write image caption to the bottom
+	wrap: false,
+	// if write "alt" as image caption to the bottom
 	caption: false,
-	// use css transform instead of top left width height
-	useTransform: true,
 })
 	</script>
 </body>

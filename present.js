@@ -6,10 +6,8 @@ const DEF_OPTS = {
 	size: 0.8,
 	zIndex: 999999,
 	backgroundOpacity: 0.9,
-	navigate: true,
 	wrap: true,
 	caption: false,
-	useTransform: true,
 }
 
 function h(tag, props, children) {
@@ -87,30 +85,28 @@ export default function(userOpts = {}) {
 
 	cleanups.push(forAll(selector, apply))
 
-	// TODO: data-present-scope
-	function prev() {
+	function cycle(n) {
 		if (!curPresenting) return
-		const imgs = document.querySelectorAll(selector)
+		const scope = curPresenting.srcImg.dataset.presentScope
+		if (!scope) return
+		const imgs = document.querySelectorAll(`${selector}[data-present-scope="${scope}"]`)
 		for (let i = 0; i < imgs.length; i++) {
 			if (imgs[i] === curPresenting.srcImg) {
-				const newSrcImg = imgs[i === 0 ? imgs.length - 1 : i - 1]
+				let newIdx = i + n
+				if (newIdx >= imgs.length) {
+					newIdx = opts.wrap ? newIdx % imgs.length : imgs.length - 1
+				} else if (newIdx < 0) {
+					newIdx = opts.wrap ? imgs.length + newIdx % imgs.length : 0
+				}
+				const newSrcImg = imgs[newIdx]
 				curPresenting.change(newSrcImg)
 				return
 			}
 		}
 	}
 
-	function next() {
-		if (!curPresenting) return
-		const imgs = document.querySelectorAll(selector)
-		for (let i = 0; i < imgs.length; i++) {
-			if (imgs[i] === curPresenting.srcImg) {
-				const newSrcImg = imgs[(i + 1) % imgs.length]
-				curPresenting.change(newSrcImg)
-				return
-			}
-		}
-	}
+	const prev = () => cycle(-1)
+	const next = () => cycle(1)
 
 	const bodyEvents = {}
 	const windowEvents = {}
@@ -122,14 +118,12 @@ export default function(userOpts = {}) {
 				close()
 			}
 		}
-		if (opts.navigate) {
-			if (e.key === "ArrowLeft") {
-				e.preventDefault()
-				prev()
-			} else if (e.key === "ArrowRight") {
-				e.preventDefault()
-				next()
-			}
+		if (e.key === "ArrowLeft") {
+			e.preventDefault()
+			prev()
+		} else if (e.key === "ArrowRight") {
+			e.preventDefault()
+			next()
 		}
 	}
 
@@ -138,6 +132,11 @@ export default function(userOpts = {}) {
 		e.preventDefault()
 		// TODO: something like this
 		// https://ilanablumberg.co.uk/Collections-Projects
+	}
+
+	bodyEvents["mousemove"] = (e) => {
+		if (!curPresenting) return
+		// TODO
 	}
 
 	windowEvents["resize"] = (e) => {
@@ -183,10 +182,8 @@ export default function(userOpts = {}) {
 				"top": `${srcRect.y}px`,
 				"width": `${srcRect.width}px`,
 				"height": `${srcRect.height}px`,
-				"transform-origin": opts.useTransform ? "top left" : "center",
-				"transition-property": opts.useTransform
-					? "transform"
-					: "left, top, width, height",
+				"transform-origin": "top left",
+				"transition-property": "transform",
 				"transition-duration": `${opts.transition}s`,
 				"transition-timing-function": opts.transitionFunc,
 				"transform": "translateZ(0)",
@@ -202,6 +199,7 @@ export default function(userOpts = {}) {
 				"z-index": opts.zIndex,
 				"transition-property": "background-color",
 				"transition-duration": `${opts.transition}s`,
+				"transform": "translateZ(0)",
 				"width": "100vw",
 				"height": "100vh",
 				"position": "fixed",
@@ -248,25 +246,17 @@ export default function(userOpts = {}) {
 			curPresenting.srcImg = srcImg
 		}
 
-		// TODO: slow on mobile, use transform?
 		function update() {
 			const destRect = calcDestRect()
-			if (opts.useTransform) {
-				const srcRect = getRealRect(srcImg)
-				const dx = destRect.x - srcRect.x
-				const dy = destRect.y - srcRect.y
-				const s = destRect.width / srcRect.width
-				img.style["left"] = `${srcRect.x}px`
-				img.style["top"] = `${srcRect.y}`
-				img.style["width"] = `${srcRect.width}px`
-				img.style["height"] = `${srcRect.height}px`
-				img.style["transform"] = `translate3d(${dx}px, ${dy}px, 0) scale(${s})`
-			} else {
-				img.style["left"] = `${destRect.x}px`
-				img.style["top"] = `${destRect.y}`
-				img.style["width"] = `${destRect.width}px`
-				img.style["height"] = `${destRect.height}px`
-			}
+			const srcRect = getRealRect(srcImg)
+			const dx = destRect.x - srcRect.x
+			const dy = destRect.y - srcRect.y
+			const s = destRect.width / srcRect.width
+			img.style["left"] = `${srcRect.x}px`
+			img.style["top"] = `${srcRect.y}`
+			img.style["width"] = `${srcRect.width}px`
+			img.style["height"] = `${srcRect.height}px`
+			img.style["transform"] = `translate3d(${dx}px, ${dy}px, 0) scale(${s})`
 		}
 
 		setTimeout(() => {
@@ -277,17 +267,17 @@ export default function(userOpts = {}) {
 			}, opts.transition * 1000)
 		}, 0)
 
+		let dragging = null
+
+		img.addEventListener("mousedown", (e) => {
+			e.preventDefault()
+			// TODO
+		})
+
 		function dispose() {
 			const srcRect = getRealRect(srcImg)
 			img.style["transition-duration"] = `${opts.transition}s`
-			if (opts.useTransform) {
-				img.style["transform"] = "translate3d(0, 0, 0) scale(1)"
-			} else {
-				img.style["left"] = `${srcRect.x}px`
-				img.style["top"] = `${srcRect.y}`
-				img.style["width"] = `${srcRect.width}px`
-				img.style["height"] = `${srcRect.height}px`
-			}
+			img.style["transform"] = "translate3d(0, 0, 0) scale(1)"
 			backdrop.style["background-color"] = `rgba(0, 0, 0, 0)`
 			const self = curPresenting
 			return new Promise((resolve) => {
